@@ -13,8 +13,8 @@ class ComplaintManager:
         return await database.fetch_all(query)
     
     @staticmethod
-    async def create_complaint(complaint_data):
-        # complaint_data["complainer_id"] = user["id"]
+    async def create_complaint(complaint_data,user):
+        complaint_data["complainer_id"] = user["id"]
         # complaint_data["status"] = State.pending
         id_ = await database.execute(complaint.insert().values(**complaint_data))
         return await database.fetch_one(complaint.select().where(complaint.c.id == id_))

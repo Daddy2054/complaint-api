@@ -20,32 +20,34 @@ class AuthManager:
     def encode_token(user):
         try:
 
-            payload = {
-                'sub': user["id"],
-                'exp': datetime.now(timezone.utc) + timedelta(days=1),
-                #'iat': datetime.now(datetime.timezone.utc)
-            }
-
+            # payload = {
+            #     'sub': user["id"],
+            #     'exp': datetime.now(timezone.utc) + timedelta(days=1),
+            # }
+            to_encode = {"sub":str(user["id"])}
+            expire = datetime.now(timezone.utc) + timedelta(minutes=1995)
+            to_encode.update({"exp": expire})
             encoded_jwt = jwt.encode(
-                payload,
+                # payload,
+                to_encode,
                 secret_key,
-                algorithm='HS256'
+                algorithm="HS256"
             )  
             return encoded_jwt
         except Exception as e:
             raise e 
         
 class CustomHTTPBearer(HTTPBearer):
-    async def ____call__(
+    async def __call__(
         self, request: Request
     ) -> Optional[HTTPAuthorizationCredentials]:
         res = await super().__call__(request)
 
         try:
             payload = jwt.decode(
-                res.credentials, os.getenv("JWT_SECRET"), algorithms=["HS256"]
+                res.credentials, secret_key, algorithms=["HS256"]
             )
-            user_id = payload["sub"]
+            user_id = int(payload["sub"])
             user_data = await database.fetch_one(user.select().where(user.c.id == user_id))
             request.state.user = user_data
             return user_data
@@ -55,7 +57,9 @@ class CustomHTTPBearer(HTTPBearer):
 
         except jwt.InvalidTokenError:
             raise HTTPException(401, "Invalid token")
-        
+
+oauth2_scheme = CustomHTTPBearer()
+
 def is_complainer(request: Request):
     if not request.state.user["role"] == RoleType.complainer:
         raise HTTPException(403, "Forbidden")
