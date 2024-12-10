@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 import os
 from db import database
 from models import user
+from models.enums import RoleType
 
 #dotenv.load_dotenv()
 secret_key = os.getenv('SECRET_KEY')
@@ -54,3 +55,15 @@ class CustomHTTPBearer(HTTPBearer):
 
         except jwt.InvalidTokenError:
             raise HTTPException(401, "Invalid token")
+        
+def is_complainer(request: Request):
+    if not request.state.user["role"] == RoleType.complainer:
+        raise HTTPException(403, "Forbidden")
+
+def is_approver(request: Request):
+    if not request.state.user["role"] == RoleType.approver:
+        raise HTTPException(403, "Forbidden")
+
+def is_admin(request: Request):
+    if not request.state.user["role"] == RoleType.admin:
+        raise HTTPException(403, "Forbidden")
