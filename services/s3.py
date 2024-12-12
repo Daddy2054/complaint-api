@@ -1,4 +1,3 @@
-# dotenv.load_dotenv()
 import os
 import boto3
 from fastapi import HTTPException
