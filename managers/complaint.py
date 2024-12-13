@@ -5,9 +5,11 @@ from models import complaint
 from models.enums import RoleType, State
 from db import database
 from services.s3 import S3Service
+from services.ses import SESService
 from utils.helpers import decode_photo
 
 s3 = S3Service()
+ses = SESService()
 
 class ComplaintManager:
     @staticmethod
@@ -42,6 +44,11 @@ class ComplaintManager:
             complaint.update()
             .where(complaint.c.id == complaint_id)
             .values(status=State.approved)
+        )
+        ses.send_mail(
+            "Your complaint has been approved",
+            ["test@example.com"],
+            "Your complaint has been approved, check your bank account in 2 days for the refund",
         )
 
     @staticmethod
