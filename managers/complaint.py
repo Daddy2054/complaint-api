@@ -12,6 +12,7 @@ from utils.helpers import decode_photo
 
 s3 = S3Service()
 ses = SESService()
+wise = WiseService()
 
 class ComplaintManager:
     @staticmethod
@@ -33,8 +34,11 @@ class ComplaintManager:
         decode_photo(path, encoded_photo)
         complaint_data["photo_url"] =s3.upload(path, name,extension)
         os.remove(path)
-        id_ = await database.execute(complaint.insert().values(**complaint_data))
-        await ComplaintManager.issue_transaction(
+        async with database.transaction() as tconn:
+
+            id_ = await tconn._connection.execute(complaint.insert().values(**complaint_data))
+            await ComplaintManager.issue_transaction(
+            tconn,
             complaint_data["amount"],
             f"{user['first_name']} {user['last_name']}",
             user["iban"],
@@ -53,6 +57,11 @@ class ComplaintManager:
             .where(complaint.c.id == complaint_id)
             .values(status=State.approved)
         )
+        transaction_data = await database.fetch_one(
+            transaction.select().where(transaction.c.complaint_id == complaint_id)
+        )
+
+        wise.fund_transfer(transaction_data["transfer_id"])
         ses.send_mail(
             "Your complaint has been approved",
             ["test@example.com"],
@@ -61,6 +70,10 @@ class ComplaintManager:
 
     @staticmethod
     async def reject(complaint_id):
+        transaction_data = await database.fetch_one(
+            transaction.select().where(transaction.c.complaint_id == complaint_id)
+        )
+        wise.cancel_transfer(transaction_data["transfer_id"])
         await database.execute(
             complaint.update()
             .where(complaint.c.id == complaint_id)
@@ -69,18 +82,11 @@ class ComplaintManager:
 
 
     @staticmethod
-    async def issue_transaction(amount, full_name, iban, complaint_id):
+    async def issue_transaction(tconn,  amount, full_name, iban, complaint_id):
 
-        wise = WiseService()
-        # print(wise.profile_id)
         quote_id = wise.create_quote(amount)
         recipient_id = wise.create_recipient_account(full_name, iban)
         transfer_id = wise.transfer(recipient_id, quote_id)
-        #wise.fund_transfer(transfer_id)
-        # result = wise.fund_transfer(transfer_id)
-        # transaction_id = result['balanceTransactionId']
-        # status = result['status']
-        # print(status, transaction_id)
         data = {
             "quote_id": quote_id,
             "target_account_id": str(recipient_id),
@@ -89,5 +95,5 @@ class ComplaintManager:
             "complaint_id": complaint_id,
         }
         
-        await database.execute(transaction.insert().values(**data))
+        await tconn._connection.execute(transaction.insert().values(**data))
         

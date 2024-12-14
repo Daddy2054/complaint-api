@@ -84,6 +84,14 @@ class WiseService:
             #print(response.content)
             return json.loads(response.content)
         else:
+            print(json.loads(response.content))
             raise Exception("Could not transfer")
 
 
+    def cancel_transfer(self, transfer_id):
+        url = f"{self.main_url}/v1/transfers/{transfer_id}/cancel"
+        response = requests.put(url, headers=self.headers)
+        if response.status_code == 200:
+            return True
+        else:
+            raise Exception("Could not cancel transfer")
