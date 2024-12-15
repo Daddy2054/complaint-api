@@ -15,5 +15,5 @@ async def register(user_data: UserRegisterIn):
 
 @router.post("/login/", status_code=200)
 async def login(user_data: UserLoginIn):
-    token = await UserManager().login(user_data.model_dump())
-    return {"token": token}
+    token, role = await UserManager().login(user_data.model_dump())
+    return {"token": token, "role": role}
